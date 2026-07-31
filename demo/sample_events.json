@@ -1,0 +1,39 @@
+[
+  {
+    "device_id": "DEV-PROD-SRV-01",
+    "event_type": "network_traffic",
+    "src_ip": "192.168.1.105",
+    "dst_ip": "10.0.0.1",
+    "network_bytes_sec": 850000000.0,
+    "user": "www-data",
+    "command_line": "nginx: worker process",
+    "details": {
+      "requests_per_sec": 125000,
+      "protocol": "TCP SYN Flood"
+    }
+  },
+  {
+    "device_id": "DEV-FIN-WKS-04",
+    "event_type": "process_execution",
+    "process_name": "mimikatz.exe",
+    "process_id": 5120,
+    "user": "jdoe",
+    "command_line": "mimikatz.exe privilege::debug sekurlsa::logonpasswords exit",
+    "details": {
+      "integrity_level": "High",
+      "lsass_accessed": true
+    }
+  },
+  {
+    "device_id": "DEV-DB-SRV-02",
+    "event_type": "process_execution",
+    "process_name": "vssadmin.exe",
+    "process_id": 8812,
+    "user": "NT AUTHORITY\\SYSTEM",
+    "file_path": "C:\\Data\\FinancialRecords.db.locked",
+    "command_line": "vssadmin delete shadows /all /quiet",
+    "details": {
+      "shadow_copy_deleted": true
+    }
+  }
+]

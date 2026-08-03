@@ -1,4 +1,7 @@
+import logging
 from backend.database.db import init_db, get_db_connection, save_incident
+
+logger = logging.getLogger("cyra_sentinel.database.seed")
 
 def seed_database():
     init_db()
@@ -39,7 +42,7 @@ def seed_database():
         }
     })
 
-    print("Database seeded successfully with initial devices and incidents.")
+    logger.info("Database seeded successfully with initial devices and incidents.")
 
 if __name__ == "__main__":
     seed_database()

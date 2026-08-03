@@ -1,5 +1,4 @@
 import os
-from pydantic_settings import BaseSettings if os.getenv("USE_PYDANTIC_SETTINGS") else object
 
 class Settings:
     PROJECT_NAME: str = "Cyra Sentinel"

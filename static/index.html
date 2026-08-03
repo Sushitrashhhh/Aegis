@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cyra Sentinel - AI EDR Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      background-color: #020617;
+      color: #f8fafc;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const API_BASE = '/api/v1';
+
+    async function fetchIncidents() {
+      try {
+        const res = await fetch(`${API_BASE}/incidents`);
+        if (!res.ok) return [];
+        return await res.json();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    async function fetchDevices() {
+      try {
+        const res = await fetch(`${API_BASE}/devices`);
+        if (!res.ok) return [];
+        return await res.json();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    async function isolateDevice(deviceId, reason) {
+      const res = await fetch(`${API_BASE}/devices/${deviceId}/isolate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      return res.json();
+    }
+
+    async function sendAgentMessage(message, incidentId) {
+      const res = await fetch(`${API_BASE}/agent/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, incident_id: incidentId })
+      });
+      return res.json();
+    }
+
+    function ScoreBadge({ score }) {
+      const numScore = typeof score === 'number' ? score : parseFloat(score) || 0.9;
+      const pct = Math.round(numScore > 1 ? numScore : numScore * 100);
+      let colorClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+      if (pct >= 85) colorClass = 'bg-red-500/10 text-red-400 border-red-500/30';
+      else if (pct >= 60) colorClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+
+      return (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${colorClass}`}>
+          <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+          <span>{pct}% Confidence</span>
+        </span>
+      );
+    }
+
+    function IncidentCard({ incident, isSelected, onClick }) {
+      const getSeverityBorder = (sev) => {
+        switch ((sev || '').toUpperCase()) {
+          case 'CRITICAL': return 'border-l-4 border-l-red-500';
+          case 'HIGH': return 'border-l-4 border-l-orange-500';
+          case 'MEDIUM': return 'border-l-4 border-l-amber-500';
+          default: return 'border-l-4 border-l-blue-500';
+        }
+      };
+
+      return (
+        <div
+          onClick={onClick}
+          className={`p-4 rounded-xl border bg-slate-900/80 hover:bg-slate-800/80 transition-all cursor-pointer ${getSeverityBorder(incident.severity)} ${
+            isSelected ? 'ring-2 ring-cyan-500 border-cyan-500/50 shadow-lg shadow-cyan-950/50' : 'border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-red-400">🛡️</span>
+              <span className="font-mono text-xs text-slate-400">{incident.id}</span>
+            </div>
+            <ScoreBadge score={incident.confidence} />
+          </div>
+          <h3 className="font-semibold text-slate-100 text-sm mb-1">{incident.title}</h3>
+          <p className="text-xs text-slate-400 line-clamp-2 mb-3">{incident.description}</p>
+          <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/60">
+            <div className="flex items-center gap-1.5">
+              <span className="text-cyan-400">💻</span>
+              <span className="font-mono">{incident.device_id}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-slate-500">⏱️</span>
+              <span className="font-semibold text-cyan-400">{incident.status}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function AgentReasoning({ reasoning }) {
+      if (!reasoning) return null;
+      return (
+        <div className="bg-slate-900/80 rounded-xl border border-slate-800 p-5 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-lg">
+                🤖
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-100 text-sm">Bedrock Claude AI Investigation</h3>
+                <p className="text-xs text-slate-400">Autonomous Detect → Investigate → Remember → Act Pipeline</p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+              ✓ Verdict Formulated
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-200 text-sm font-medium">
+            {reasoning.agent_verdict}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+              <span className="text-cyan-400">🔬</span>
+              <span>Stage 1 Root Cause Analysis</span>
+            </div>
+            <p className="text-xs text-slate-300 bg-slate-950/80 p-3.5 rounded-lg border border-slate-800/80 leading-relaxed font-mono">
+              {reasoning.explanation}
+            </p>
+          </div>
+
+          {reasoning.recommended_action && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                <span className="text-amber-400">⚠️</span>
+                <span>Recommended Containment Strategy</span>
+              </div>
+              <div className="p-3.5 rounded-lg bg-amber-950/20 border border-amber-500/30 text-xs space-y-1">
+                <div className="font-semibold text-amber-300">
+                  {reasoning.recommended_action.recommended_action}
+                </div>
+                {reasoning.recommended_action.steps && (
+                  <ul className="list-disc list-inside text-slate-400 space-y-1 pt-1">
+                    {reasoning.recommended_action.steps.map((step, i) => <li key={i}>{step}</li>)}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
+          {reasoning.memory_persisted && (
+            <div className="flex items-center gap-2 pt-2 text-xs text-emerald-400 border-t border-slate-800/60 font-mono">
+              <span>🧠</span>
+              <span>{reasoning.memory_persisted.message}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function ProcessTree({ deviceInfo }) {
+      if (!deviceInfo) return null;
+      return (
+        <div className="bg-slate-900/80 rounded-xl border border-slate-800 p-4 space-y-3 shadow-lg">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
+            <div className="flex items-center gap-2">
+              <span className="text-cyan-400">🌿</span>
+              <span>Device Risk Profile & Process Tree</span>
+            </div>
+            <span className="font-mono text-cyan-400">{deviceInfo.device_id}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+            <div><span className="text-slate-500">Host:</span> <span className="text-slate-200 font-mono">{deviceInfo.name}</span></div>
+            <div><span className="text-slate-500">IP:</span> <span className="text-slate-200 font-mono">{deviceInfo.ip_address}</span></div>
+            <div><span className="text-slate-500">Owner:</span> <span className="text-slate-200">{deviceInfo.owner}</span></div>
+            <div><span className="text-slate-500">Criticality:</span> <span className="text-amber-400 font-semibold">{deviceInfo.criticality}</span></div>
+          </div>
+
+          {deviceInfo.active_processes && (
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                <span>💻</span>
+                <span>Active Process Tree</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-[11px] text-emerald-400 border border-slate-800 space-y-1">
+                {deviceInfo.active_processes.map((proc, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="text-slate-600">└─</span>
+                    <span className={proc.includes('mimikatz') || proc.includes('vssadmin') ? 'text-red-400 font-bold animate-pulse' : ''}>
+                      {proc}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function SimilarThreats({ threats }) {
+      if (!threats || threats.length === 0) return null;
+      return (
+        <div className="bg-slate-900/80 rounded-xl border border-slate-800 p-4 space-y-3 shadow-lg">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+            <span className="text-purple-400">✨</span>
+            <span>Bedrock Titan Vector Memory Match</span>
+          </div>
+          <div className="space-y-2">
+            {threats.map((t, idx) => (
+              <div key={idx} className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-purple-300">{t.threat_type || t.id}</span>
+                  <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[10px] font-mono border border-purple-500/30">
+                    {(t.similarity_score * 100).toFixed(1)}% Match
+                  </span>
+                </div>
+                <p className="text-slate-300 leading-relaxed">{t.summary}</p>
+                {t.recommended_action && (
+                  <p className="text-[11px] text-slate-400 pt-1 font-mono">
+                    Historical Action: {t.recommended_action}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function ChatWindow({ incidentId }) {
+      const [messages, setMessages] = useState([
+        { sender: 'agent', text: 'Greetings. I am Cyra Sentinel SOC Agent. Ask me about threat investigation details, containment status, or vector memory findings.' }
+      ]);
+      const [input, setInput] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleSend = async (e) => {
+        e.preventDefault();
+        if (!input.trim() || loading) return;
+        const userText = input.trim();
+        setInput('');
+        setMessages(prev => [...prev, { sender: 'user', text: userText }]);
+        setLoading(true);
+
+        try {
+          const res = await sendAgentMessage(userText, incidentId);
+          setMessages(prev => [...prev, { sender: 'agent', text: res.response || 'Agent processed request.' }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { sender: 'agent', text: 'Error connecting to Cyra Agent endpoint.' }]);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="flex flex-col h-[350px] bg-slate-900/80 rounded-xl border border-slate-800 overflow-hidden shadow-lg">
+          <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
+            <span>🤖</span>
+            <span className="font-semibold text-xs text-slate-200">Cyra Sentinel Interactive Agent Chat</span>
+          </div>
+          <div className="flex-1 p-3 overflow-y-auto space-y-3 text-xs">
+            {messages.map((m, idx) => (
+              <div key={idx} className={`flex gap-2 ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`p-2.5 rounded-lg max-w-[80%] leading-relaxed ${
+                  m.sender === 'user' ? 'bg-cyan-600 text-slate-100' : 'bg-slate-950 border border-slate-800 text-slate-200'
+                }`}>
+                  {m.text}
+                </div>
+              </div>
+            ))}
+            {loading && <div className="text-slate-500 text-[11px] animate-pulse">Cyra Agent analyzing response...</div>}
+          </div>
+          <form onSubmit={handleSend} className="p-2 bg-slate-950 border-t border-slate-800 flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Ask Cyra Sentinel..."
+              className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+            />
+            <button type="submit" disabled={loading} className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-100 text-xs font-semibold">
+              Send
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    function App() {
+      const [incidents, setIncidents] = useState([]);
+      const [devices, setDevices] = useState([]);
+      const [selectedIncident, setSelectedIncident] = useState(null);
+      const [loading, setLoading] = useState(false);
+
+      const loadData = async () => {
+        setLoading(true);
+        try {
+          const incData = await fetchIncidents();
+          const devData = await fetchDevices();
+          setIncidents(incData);
+          setDevices(devData);
+          if (incData.length > 0 && !selectedIncident) {
+            setSelectedIncident(incData[0]);
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => {
+        loadData();
+        const interval = setInterval(loadData, 5000);
+        return () => clearInterval(interval);
+      }, []);
+
+      const handleIsolate = async (deviceId) => {
+        try {
+          await isolateDevice(deviceId, 'Manual containment from dashboard');
+          await loadData();
+        } catch (err) {
+          alert('Failed to isolate device');
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+          <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
+            <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-slate-950 font-bold">
+                  🛡️
+                </div>
+                <div>
+                  <span className="font-extrabold text-base tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                    CYRA SENTINEL
+                  </span>
+                  <span className="ml-2 text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                    AI EDR CONSOLE
+                  </span>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between shadow-lg">
+                <div>
+                  <div className="text-xs text-slate-400 font-medium">Active Incidents</div>
+                  <div className="text-2xl font-bold text-slate-100">{incidents.length}</div>
+                </div>
+                <span className="text-2xl">🚨</span>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between shadow-lg">
+                <div>
+                  <div className="text-xs text-slate-400 font-medium">Monitored Endpoints</div>
+                  <div className="text-2xl font-bold text-slate-100">{devices.length}</div>
+                </div>
+                <span className="text-2xl">💻</span>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between shadow-lg">
+                <div>
+                  <div className="text-xs text-slate-400 font-medium">AI Contained Nodes</div>
+                  <div className="text-2xl font-bold text-emerald-400">
+                    {devices.filter(d => d.status === 'ISOLATED').length}
+                  </div>
+                </div>
+                <span className="text-2xl">⚡</span>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between shadow-lg">
+                <div>
+                  <div className="text-xs text-slate-400 font-medium">Autonomous Mode</div>
+                  <div className="text-2xl font-bold text-cyan-400">ACTIVE</div>
+                </div>
+                <span className="text-2xl animate-pulse">📡</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                    <span>🚨</span>
+                    <span>Real-Time Incident Stream</span>
+                  </h2>
+                  <button onClick={loadData} className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs">
+                    🔄 Refresh
+                  </button>
+                </div>
+                <div className="space-y-3 max-h-[700px] overflow-y-auto pr-1">
+                  {incidents.length > 0 ? (
+                    incidents.map((inc) => (
+                      <IncidentCard
+                        key={inc.id}
+                        incident={inc}
+                        isSelected={selectedIncident?.id === inc.id}
+                        onClick={() => setSelectedIncident(inc)}
+                      />
+                    ))
+                  ) : (
+                    <div className="p-6 text-center text-xs text-slate-500 bg-slate-900/50 rounded-xl border border-slate-800">
+                      No active incidents. Run a simulation demo to generate telemetry.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="lg:col-span-2 space-y-6">
+                {selectedIncident ? (
+                  <>
+                    <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 flex items-center justify-between shadow-lg">
+                      <div>
+                        <div className="text-xs font-mono text-cyan-400">{selectedIncident.id} • {selectedIncident.attack_type}</div>
+                        <h1 className="text-lg font-bold text-slate-100">{selectedIncident.title}</h1>
+                      </div>
+                      <button
+                        onClick={() => handleIsolate(selectedIncident.device_id)}
+                        className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-slate-100 text-xs font-semibold flex items-center gap-2 shadow-lg shadow-red-950"
+                      >
+                        ⚡ Isolate Subnet
+                      </button>
+                    </div>
+
+                    <AgentReasoning reasoning={selectedIncident.ai_reasoning} />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <ProcessTree deviceInfo={selectedIncident.ai_reasoning?.device_info} />
+                      <SimilarThreats threats={selectedIncident.ai_reasoning?.similar_threats || []} />
+                    </div>
+
+                    <ChatWindow incidentId={selectedIncident.id} />
+                  </>
+                ) : (
+                  <div className="p-12 text-center text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800">
+                    Select an incident from the stream to inspect Bedrock Claude reasoning.
+                  </div>
+                )}
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

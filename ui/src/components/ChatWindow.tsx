@@ -36,53 +36,74 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ incidentId }) => {
   };
 
   return (
-    <div className="flex flex-col h-[400px] bg-slate-900/80 rounded-xl border border-slate-800 overflow-hidden">
-      <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
-        <Bot className="w-4 h-4 text-cyan-400" />
-        <span className="font-semibold text-xs text-slate-200">Cyra Sentinel Interactive Agent Chat</span>
+    <div className="flex flex-col h-[450px] bg-[#0D1117] rounded border border-[rgba(255,255,255,0.08)] overflow-hidden">
+      {/* Header */}
+      <div className="p-3 bg-[#07090C] border-b border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Bot className="w-4 h-4 text-[#F5A900]" />
+          <span className="font-mono font-semibold text-xs uppercase tracking-wider text-[#E6E9ED]">
+            CYRA AGENT INTERACTIVE CONSOLE
+          </span>
+        </div>
+        {incidentId && (
+          <span className="font-mono text-[11px] text-[#F5A900] bg-[#F5A900]/10 px-2 py-0.5 rounded border border-[#F5A900]/20">
+            CONTEXT: {incidentId}
+          </span>
+        )}
       </div>
 
-      <div className="flex-1 p-3 overflow-y-auto space-y-3 font-sans text-xs">
+      {/* Messages Scroll Area */}
+      <div className="flex-1 p-4 overflow-y-auto space-y-3 font-sans text-xs">
         {messages.map((m, idx) => (
-          <div key={idx} className={`flex gap-2 ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={idx} className={`flex items-start gap-2.5 ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
             {m.sender === 'agent' && (
-              <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 flex-shrink-0">
+              <div className="w-6 h-6 rounded bg-[#F5A900]/10 border border-[#8A6300]/40 flex items-center justify-center text-[#F5A900] shrink-0 mt-0.5">
                 <Bot className="w-3.5 h-3.5" />
               </div>
             )}
-            <div className={`p-2.5 rounded-lg max-w-[80%] leading-relaxed ${
-              m.sender === 'user' 
-                ? 'bg-cyan-600 text-slate-100 rounded-tr-none' 
-                : 'bg-slate-950 border border-slate-800 text-slate-200 rounded-tl-none'
-            }`}>
-              {m.text}
+            <div
+              className={`p-3 rounded max-w-[80%] leading-relaxed ${
+                m.sender === 'user'
+                  ? 'bg-[#131822] border border-[#8A6300]/40 text-[#E6E9ED] rounded-tr-none'
+                  : 'bg-[#07090C] border border-[rgba(255,255,255,0.08)] text-[#E6E9ED] rounded-tl-none font-sans'
+              }`}
+            >
+              <div className="text-[10px] font-mono text-[#66707C] mb-1 uppercase tracking-wider">
+                {m.sender === 'user' ? 'ANALYST COMMAND' : 'CYRA AGENT'}
+              </div>
+              <p className="whitespace-pre-wrap">{m.text}</p>
             </div>
             {m.sender === 'user' && (
-              <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 flex-shrink-0">
+              <div className="w-6 h-6 rounded bg-[#131822] border border-[rgba(255,255,255,0.08)] flex items-center justify-center text-[#E6E9ED] shrink-0 mt-0.5">
                 <User className="w-3.5 h-3.5" />
               </div>
             )}
           </div>
         ))}
         {loading && (
-          <div className="text-slate-500 text-[11px] animate-pulse">Cyra Agent analyzing response...</div>
+          <div className="flex items-center gap-2 text-[#66707C] font-mono text-xs pl-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F5A900] animate-pulse" />
+            <span>CYRA AGENT ANALYZING TELEMETRY...</span>
+          </div>
         )}
       </div>
 
-      <form onSubmit={handleSend} className="p-2 bg-slate-950 border-t border-slate-800 flex gap-2">
+      {/* Form Input */}
+      <form onSubmit={handleSend} className="p-2.5 bg-[#07090C] border-t border-[rgba(255,255,255,0.08)] flex gap-2">
         <input
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Ask Cyra Sentinel (e.g. 'Explain the root cause')"
-          className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+          placeholder="Command Cyra Sentinel (e.g. 'Explain the root cause')..."
+          className="flex-1 bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded px-3 py-1.5 text-xs font-sans text-[#E6E9ED] placeholder-[#66707C] focus:outline-none focus:border-[#F5A900]"
         />
         <button
           type="submit"
           disabled={loading}
-          className="p-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-100 transition-colors"
+          className="px-3.5 py-1.5 rounded bg-[#F5A900]/10 border border-[#F5A900] text-[#F5A900] hover:bg-[#F5A900] hover:text-[#07090C] text-xs font-mono font-semibold transition-colors focus-visible:outline-none disabled:opacity-50 flex items-center gap-1.5"
         >
           <Send className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">SEND</span>
         </button>
       </form>
     </div>

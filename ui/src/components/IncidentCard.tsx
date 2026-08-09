@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, Cpu, Activity, Clock } from 'lucide-react';
+import { ShieldAlert, Cpu, Clock } from 'lucide-react';
 import { ScoreBadge } from './ScoreBadge';
 
 interface IncidentCardProps {
@@ -9,45 +9,53 @@ interface IncidentCardProps {
 }
 
 export const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onClick, isSelected }) => {
-  const getSeverityStyle = (severity: string) => {
+  const getSeverityBorder = (severity: string) => {
     switch (severity?.toUpperCase()) {
       case 'CRITICAL':
-        return 'border-l-4 border-l-red-500 bg-slate-900/80 hover:bg-slate-800/80';
       case 'HIGH':
-        return 'border-l-4 border-l-orange-500 bg-slate-900/80 hover:bg-slate-800/80';
+        return 'border-l-[#FF4D5A]';
       case 'MEDIUM':
-        return 'border-l-4 border-l-amber-500 bg-slate-900/80 hover:bg-slate-800/80';
+        return 'border-l-[#F5A900]';
       default:
-        return 'border-l-4 border-l-blue-500 bg-slate-900/80 hover:bg-slate-800/80';
+        return 'border-l-[#4DA3FF]';
     }
   };
 
   return (
     <div
       onClick={onClick}
-      className={`p-4 rounded-xl border transition-all cursor-pointer ${getSeverityStyle(incident.severity)} ${
-        isSelected ? 'ring-2 ring-cyan-500 border-cyan-500/50 shadow-lg shadow-cyan-950/50' : 'border-slate-800'
-      }`}
+      tabIndex={0}
+      role="button"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); }}
+      className={`p-3 rounded bg-[#0D1117] border border-l-4 transition-colors cursor-pointer ${getSeverityBorder(
+        incident.severity
+      )} ${
+        isSelected
+          ? 'border-t-[#F5A900]/50 border-r-[#F5A900]/50 border-b-[#F5A900]/50 bg-[#131822]'
+          : 'border-t-[rgba(255,255,255,0.08)] border-r-[rgba(255,255,255,0.08)] border-b-[rgba(255,255,255,0.08)] hover:bg-[#131822] hover:border-t-[rgba(255,255,255,0.15)] hover:border-r-[rgba(255,255,255,0.15)] hover:border-b-[rgba(255,255,255,0.15)]'
+      } focus-visible:outline-none`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="w-5 h-5 text-red-400" />
-          <span className="font-mono text-xs text-slate-400">{incident.id}</span>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2 font-mono text-xs text-[#9AA3AD]">
+          <ShieldAlert className="w-3.5 h-3.5 text-[#FF4D5A] shrink-0" />
+          <span className="font-semibold text-[#E6E9ED]">{incident.id}</span>
+          <span className="text-[#66707C]">·</span>
+          <span className="text-[#F5A900] font-medium">{incident.attack_type}</span>
         </div>
         <ScoreBadge score={incident.confidence} />
       </div>
 
-      <h3 className="font-semibold text-slate-100 text-sm mb-1">{incident.title}</h3>
-      <p className="text-xs text-slate-400 line-clamp-2 mb-3">{incident.description}</p>
+      <h3 className="font-sans font-medium text-xs text-[#E6E9ED] mb-1 line-clamp-1">{incident.title}</h3>
+      <p className="font-sans text-[12px] text-[#9AA3AD] line-clamp-2 mb-2.5 leading-relaxed">{incident.description}</p>
 
-      <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/60">
+      <div className="flex items-center justify-between text-[11px] text-[#66707C] pt-2 border-t border-[rgba(255,255,255,0.05)] font-mono">
         <div className="flex items-center gap-1.5">
-          <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="font-mono">{incident.device_id}</span>
+          <Cpu className="w-3.5 h-3.5 text-[#9AA3AD]" />
+          <span>{incident.device_id}</span>
         </div>
         <div className="flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5 text-slate-500" />
-          <span>{incident.status}</span>
+          <Clock className="w-3.5 h-3.5 text-[#66707C]" />
+          <span className="uppercase">{incident.status}</span>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldAlert, Cpu, Activity, Play, Zap, RefreshCw } from 'lucide-react';
+import { ShieldAlert, Cpu, Activity, Zap, RefreshCw, Radio } from 'lucide-react';
 import { fetchIncidents, fetchDevices, isolateDevice } from '../api/client';
 import { IncidentCard } from '../components/IncidentCard';
 import { AgentReasoning } from '../components/AgentReasoning';
@@ -45,89 +45,111 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-slate-400 font-medium">Active Incidents</div>
-            <div className="text-2xl font-bold text-slate-100">{incidents.length}</div>
+    <div className="space-y-5">
+      {/* Compact Operational Summary Bar */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="p-3 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="text-[11px] font-mono text-[#66707C] uppercase tracking-wider">ACTIVE INCIDENTS</div>
+            <div className="text-xl font-mono font-bold tabular-nums text-[#E6E9ED]">{incidents.length}</div>
           </div>
-          <ShieldAlert className="w-8 h-8 text-red-400 p-1.5 rounded-lg bg-red-500/10 border border-red-500/20" />
+          <ShieldAlert className="w-5 h-5 text-[#FF4D5A]" />
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-slate-400 font-medium">Monitored Endpoints</div>
-            <div className="text-2xl font-bold text-slate-100">{devices.length}</div>
+
+        <div className="p-3 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="text-[11px] font-mono text-[#66707C] uppercase tracking-wider">ENDPOINTS MONITORED</div>
+            <div className="text-xl font-mono font-bold tabular-nums text-[#E6E9ED]">{devices.length}</div>
           </div>
-          <Cpu className="w-8 h-8 text-cyan-400 p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20" />
+          <Cpu className="w-5 h-5 text-[#9AA3AD]" />
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-slate-400 font-medium">AI Contained Nodes</div>
-            <div className="text-2xl font-bold text-emerald-400">
+
+        <div className="p-3 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="text-[11px] font-mono text-[#66707C] uppercase tracking-wider">CONTAINED NODES</div>
+            <div className="text-xl font-mono font-bold tabular-nums text-[#36C98F]">
               {devices.filter(d => d.status === 'ISOLATED').length}
             </div>
           </div>
-          <Zap className="w-8 h-8 text-emerald-400 p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20" />
+          <Zap className="w-5 h-5 text-[#36C98F]" />
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-slate-400 font-medium">Autonomous Mode</div>
-            <div className="text-2xl font-bold text-cyan-400">ACTIVE</div>
+
+        <div className="p-3 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="text-[11px] font-mono text-[#66707C] uppercase tracking-wider">AGENT PIPELINE</div>
+            <div className="text-sm font-mono font-bold text-[#F5A900] tracking-wide">AUTONOMOUS</div>
           </div>
-          <Activity className="w-8 h-8 text-cyan-400 p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 animate-pulse" />
+          <Activity className="w-5 h-5 text-[#F5A900]" />
         </div>
       </div>
 
-      {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Col: Incidents Feed */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-400" />
-              <span>Real-Time Incident Stream</span>
+      {/* Main Operational Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Left Column: Live Incident Stream */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.08)] pb-2">
+            <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-[#E6E9ED] flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-[#F5A900]" />
+              <span>REAL-TIME INCIDENT STREAM</span>
             </h2>
             <button
               onClick={loadData}
-              className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+              title="Refresh Stream"
+              aria-label="Refresh Stream"
+              className="p-1 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] text-[#66707C] hover:text-[#E6E9ED] transition-colors focus-visible:outline-none"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#F5A900]' : ''}`} />
             </button>
           </div>
 
-          <div className="space-y-3 max-h-[700px] overflow-y-auto pr-1">
-            {incidents.map((inc) => (
-              <IncidentCard
-                key={inc.id}
-                incident={inc}
-                isSelected={selectedIncident?.id === inc.id}
-                onClick={() => setSelectedIncident(inc)}
-              />
-            ))}
+          <div className="space-y-2 max-h-[720px] overflow-y-auto pr-1">
+            {incidents.length > 0 ? (
+              incidents.map((inc) => (
+                <IncidentCard
+                  key={inc.id}
+                  incident={inc}
+                  isSelected={selectedIncident?.id === inc.id}
+                  onClick={() => setSelectedIncident(inc)}
+                />
+              ))
+            ) : (
+              <div className="p-6 text-left bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded text-xs space-y-2">
+                <div className="flex items-center gap-2 text-[#36C98F] font-mono font-semibold">
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>LIVE TELEMETRY // SENSOR CONNECTED</span>
+                </div>
+                <p className="text-[#9AA3AD] font-sans">
+                  No active threats detected. System is listening to sensor event telemetry. Run a simulation script to trigger live AI investigation.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Middle & Right Col: Deep AI Investigation */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Right Column: AI Investigation Workspace */}
+        <div className="lg:col-span-2 space-y-5">
           {selectedIncident ? (
             <>
-              {/* Selected Incident Header */}
-              <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-mono text-cyan-400">{selectedIncident.id} • {selectedIncident.attack_type}</div>
-                  <h1 className="text-lg font-bold text-slate-100">{selectedIncident.title}</h1>
+              {/* Selected Incident Header Card */}
+              <div className="p-4 bg-[#0D1117] rounded border border-[rgba(255,255,255,0.08)] flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-mono text-[#F5A900] font-semibold">
+                    INCIDENT {selectedIncident.id} // {selectedIncident.attack_type?.toUpperCase()}
+                  </div>
+                  <h1 className="text-sm font-sans font-semibold text-[#E6E9ED]">
+                    {selectedIncident.title}
+                  </h1>
                 </div>
                 <button
                   onClick={() => handleIsolate(selectedIncident.device_id)}
-                  className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-slate-100 text-xs font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-red-950"
+                  className="px-3 py-1.5 rounded bg-[#FF4D5A]/10 border border-[#FF4D5A]/40 text-[#FF4D5A] hover:bg-[#FF4D5A]/20 text-xs font-mono font-semibold transition-colors focus-visible:outline-none flex items-center gap-1.5"
                 >
-                  <Zap className="w-4 h-4" /> Isolate Device Subnet
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>ISOLATE HOST SUBNET</span>
                 </button>
               </div>
 
-              {/* Agent Reasoning */}
+              {/* Agent Reasoning Log */}
               <AgentReasoning reasoning={selectedIncident.ai_reasoning} />
 
               {/* Grid: Process Tree & Vector Matches */}
@@ -137,8 +159,8 @@ export const Dashboard: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="p-12 text-center text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800">
-              Select an incident from the stream to inspect Bedrock Claude reasoning.
+            <div className="p-12 text-center text-[#66707C] bg-[#0D1117] rounded border border-[rgba(255,255,255,0.08)] font-mono text-xs uppercase tracking-wider">
+              SELECT AN INCIDENT FROM THE STREAM TO INSPECT INVESTIGATION LOGS
             </div>
           )}
         </div>

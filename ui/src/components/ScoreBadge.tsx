@@ -9,15 +9,18 @@ export const ScoreBadge: React.FC<ScoreBadgeProps> = ({ score, label }) => {
   const numScore = typeof score === 'number' ? score : parseFloat(score) || 0.9;
   const pct = Math.round(numScore > 1 ? numScore : numScore * 100);
 
-  let badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-  if (pct >= 85) badgeColor = 'bg-red-500/10 text-red-400 border-red-500/30';
-  else if (pct >= 60) badgeColor = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+  let badgeStyle = 'bg-[#4DA3FF]/10 text-[#4DA3FF] border-[#4DA3FF]/30';
+  if (pct >= 85) {
+    badgeStyle = 'bg-[#FF4D5A]/10 text-[#FF4D5A] border-[#FF4D5A]/30';
+  } else if (pct >= 60) {
+    badgeStyle = 'bg-[#F5A900]/10 text-[#F5A900] border-[#F5A900]/30';
+  }
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${badgeColor}`}>
-      <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-medium border ${badgeStyle}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
       {label && <span>{label}:</span>}
-      <span>{pct}% Confidence</span>
+      <span className="tabular-nums">{pct}% Confidence</span>
     </span>
   );
 };

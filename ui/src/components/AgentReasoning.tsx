@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, AlertTriangle, ShieldCheck, Database, Layers, Copy, Check, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Bot, AlertTriangle, ShieldCheck, Database, Layers, Copy, Check, Sparkles, CheckCircle2, Archive } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { cn } from '../lib/utils';
@@ -161,6 +161,17 @@ export const AgentReasoning: React.FC<AgentReasoningProps> = ({
               {reasoning.memory_persisted.id}
             </Badge>
           )}
+        </div>
+      )}
+
+      {/* S3 Forensic Evidence URI (if present) */}
+      {reasoning.s3_evidence_uri && (
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#07090E] border border-[#06B6D4]/30 text-xs font-mono text-[#06B6D4]">
+          <div className="flex items-center gap-2 truncate">
+            <Archive className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Forensics: {reasoning.s3_evidence_uri}</span>
+          </div>
+          <Badge variant="cyan" size="sm">AWS S3</Badge>
         </div>
       )}
     </div>

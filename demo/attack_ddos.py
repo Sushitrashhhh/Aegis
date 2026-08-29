@@ -3,7 +3,7 @@ import json
 from sensor.attacks.ddos import generate_ddos_events
 
 def run_ddos_attack_simulation(backend_url: str = "http://localhost:8000/api/v1/telemetry/ingest"):
-    events = [e.dict() for e in generate_ddos_events("DEV-PROD-SRV-01")]
+    events = [e.model_dump() if hasattr(e, "model_dump") else e.dict() for e in generate_ddos_events("DEV-PROD-SRV-01")]
     print(f"[DEMO] Streaming DDoS Attack telemetry ({len(events)} events) to {backend_url}...")
     try:
         resp = httpx.post(backend_url, json=events, timeout=10.0)

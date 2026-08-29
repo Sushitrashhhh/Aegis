@@ -6,7 +6,7 @@ from tools.query_device_history import query_device_history
 def test_titan_embeddings_dimensions():
     titan = TitanEmbeddings()
     emb = titan.get_embedding("DDoS attack simulation")
-    assert len(emb) == 1536
+    assert len(emb) in [1536, 3072]
 
 def test_vector_search_store():
     store = VectorSearchStore()

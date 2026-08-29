@@ -62,6 +62,30 @@ class AIReasoningEngine:
         )
 
         # Step 7: Construct final agent reasoning narrative
+        default_verdict = f"Threat Verified: {attack_type}. Automated containment initiated. Criticality: {device_info.get('criticality')}."
+        agent_verdict = default_verdict
+
+        # Live LLM analysis if provider key is configured
+        if self.bedrock.client or self.bedrock.gemini_api_key or self.bedrock.groq_api_key:
+            try:
+                llm_prompt = (
+                    f"Incident: {attack_type} on {device_id} ({device_info.get('name')}).\n"
+                    f"Rule: {rule_id} | Details: {details}\n"
+                    f"Action: {recommendation.get('recommended_action')}\n"
+                    f"Write a concise 1-2 sentence SOC verdict and immediate containment rationale."
+                )
+                res = self.bedrock.invoke_claude(
+                    system_prompt=SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": llm_prompt}],
+                    temperature=0.1
+                )
+                if res and res.get("content") and len(res["content"]) > 0:
+                    text = res["content"][0].get("text", "").strip()
+                    if text:
+                        agent_verdict = text
+            except Exception as e:
+                logger.warning(f"Live LLM verdict note: {e}")
+
         reasoning_summary = {
             "incident_id": incident_id,
             "device_info": device_info,
@@ -71,7 +95,7 @@ class AIReasoningEngine:
             "isolation_executed": isolation_result is not None,
             "isolation_details": isolation_result,
             "memory_persisted": memory_result,
-            "agent_verdict": f"Threat Verified: {attack_type}. Automated containment initiated. Criticality: {device_info.get('criticality')}."
+            "agent_verdict": agent_verdict
         }
 
         return reasoning_summary

@@ -1,5 +1,13 @@
 import argparse
 import sys
+import os
+
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from demo.attack_ddos import run_ddos_attack_simulation
 from demo.attack_privesc import run_privesc_attack_simulation
 from sensor.attacks.ransomware import generate_ransomware_events
@@ -12,7 +20,7 @@ def main():
     args = parser.parse_args()
 
     print("==========================================================")
-    print(" 🛡️ CYRA SENTINEL - AUTONOMOUS AI SOC AGENT DEMO RUNNER")
+    print(" [CYRA SENTINEL] AUTONOMOUS AI SOC AGENT DEMO RUNNER")
     print("==========================================================")
 
     if args.attack in ["ddos", "all"]:
@@ -25,14 +33,14 @@ def main():
 
     if args.attack in ["ransomware", "all"]:
         print("\n--> [3/3] Triggering Ransomware (vssadmin erasure) Simulation...")
-        events = [e.dict() for e in generate_ransomware_events("DEV-DB-SRV-02")]
+        events = [e.model_dump() if hasattr(e, "model_dump") else e.dict() for e in generate_ransomware_events("DEV-DB-SRV-02")]
         try:
             resp = httpx.post(args.url, json=events, timeout=10.0)
             print(f"[DEMO] Server Response: {resp.status_code} - {resp.json()}")
         except Exception as e:
             print(f"[DEMO] Simulation failed: {e}")
 
-    print("\n✅ Demo simulation complete! Open the UI dashboard at http://localhost:5173 to view Bedrock AI reasoning.")
+    print("\n[SUCCESS] Demo simulation complete! Open the UI dashboard at http://localhost:5173 to view AI reasoning.")
 
 if __name__ == "__main__":
     main()

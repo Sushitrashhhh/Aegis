@@ -1,61 +1,85 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Shield, LayoutDashboard, MessageSquare, Terminal } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ToastProvider } from './components/ui/Toast';
+import { HeaderNav } from './components/HeaderNav';
 import { Dashboard } from './pages/Dashboard';
 import { IncidentPage } from './pages/Incident';
 import { ChatPage } from './pages/Chat';
+import { AttackSimulatorModal } from './components/AttackSimulatorModal';
+import { DeviceFleetDrawer } from './components/DeviceFleetDrawer';
+import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
+import { fetchDevices, Device } from './api/client';
+
+const AppContent: React.FC = () => {
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
+  const [fleetOpen, setFleetOpen] = useState(false);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const { status: wsStatus, lastEvent } = useTelemetryWebSocket();
+
+  const loadDevices = async () => {
+    try {
+      const data = await fetchDevices();
+      setDevices(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    loadDevices();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#07090E] text-[#E6E9ED] font-sans flex flex-col antialiased selection:bg-[#F5A900]/20 selection:text-[#F5A900]">
+      <HeaderNav
+        wsStatus={wsStatus}
+        onOpenSimulate={() => setSimulatorOpen(true)}
+        onOpenFleet={() => setFleetOpen(true)}
+      />
+
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:px-8">
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Dashboard
+                onOpenSimulate={() => setSimulatorOpen(true)}
+                onOpenFleet={() => setFleetOpen(true)}
+                lastWsEvent={lastEvent}
+              />
+            }
+          />
+          <Route path="/incidents/:id" element={<IncidentPage />} />
+          <Route path="/chat" element={<ChatPage />} />
+        </Routes>
+      </main>
+
+      {/* Global Modals */}
+      <AttackSimulatorModal
+        isOpen={simulatorOpen}
+        onClose={() => setSimulatorOpen(false)}
+        onAttackTriggered={loadDevices}
+      />
+
+      <DeviceFleetDrawer
+        isOpen={fleetOpen}
+        onClose={() => setFleetOpen(false)}
+        devices={devices}
+        onDevicesUpdated={loadDevices}
+      />
+    </div>
+  );
+};
 
 export const App: React.FC = () => {
   return (
-    <Router>
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-        {/* Navigation Bar */}
-        <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-slate-950 font-bold">
-                <Shield className="w-5 h-5 fill-current" />
-              </div>
-              <div>
-                <span className="font-extrabold text-base tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                  CYRA SENTINEL
-                </span>
-                <span className="ml-2 text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                  HACKATHON SOC AGENT
-                </span>
-              </div>
-            </div>
-
-            <nav className="flex items-center gap-1">
-              <Link
-                to="/"
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-slate-100 hover:bg-slate-800/60 flex items-center gap-1.5 transition-colors"
-              >
-                <LayoutDashboard className="w-4 h-4 text-cyan-400" />
-                <span>Dashboard</span>
-              </Link>
-              <Link
-                to="/chat"
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-slate-100 hover:bg-slate-800/60 flex items-center gap-1.5 transition-colors"
-              >
-                <MessageSquare className="w-4 h-4 text-cyan-400" />
-                <span>Agent Chat</span>
-              </Link>
-            </nav>
-          </div>
-        </header>
-
-        {/* Main Content View */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-6">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/incidents/:id" element={<IncidentPage />} />
-            <Route path="/chat" element={<ChatPage />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+    <ToastProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </ToastProvider>
   );
 };
 
 export default App;
+

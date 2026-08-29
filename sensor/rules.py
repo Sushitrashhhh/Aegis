@@ -9,14 +9,16 @@ class RuleEngine:
         matches: List[DetectionRuleResult] = []
 
         # Rule 1: High Traffic / DDoS Detection
-        if event.network_bytes_sec and event.network_bytes_sec > 500_000_000:  # >500 MB/s
+        syn_flood = bool((event.details or {}).get("syn_flood_detected") or (event.details or {}).get("syn_flood") or (event.details or {}).get("protocol") == "TCP SYN Flood")
+        packet_rate = (event.details or {}).get("packet_rate", 0)
+        if (event.network_bytes_sec and event.network_bytes_sec > 50_000_000) or syn_flood or (isinstance(packet_rate, (int, float)) and packet_rate > 10000):
             matches.append(DetectionRuleResult(
                 rule_id="RULE-NET-001",
                 rule_name="DDoS Network Traffic Surge",
                 severity="HIGH",
                 confidence=0.92,
                 matched_event_id=event.event_id,
-                description=f"Extremely high inbound/outbound bandwidth observed ({event.network_bytes_sec / 1e6:.1f} MB/s) from {event.src_ip}",
+                description=f"High-velocity packet storm / DDoS traffic surge observed ({((event.network_bytes_sec or 0) / 1e6):.1f} MB/s, {packet_rate} pkts/sec) targeting {event.device_name or event.device_id}",
                 suggested_type="DDoS"
             ))
 

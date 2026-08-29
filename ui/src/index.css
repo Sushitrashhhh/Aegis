@@ -2,9 +2,140 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Core Dark Theme */
+  --bg: #07090E;
+  --surface: #0D121B;
+  --surface-raised: #131A26;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+
+  --text: #E6E9ED;
+  --text-secondary: #9AA3AD;
+  --text-muted: #66707C;
+
+  /* Cyber & Functional Palettes */
+  --amber: #F5A900;
+  --amber-dim: #8A6300;
+  --critical: #FF4D5A;
+  --warning: #F5A900;
+  --info: #06B6D4;
+  --success: #10B981;
+
+  /* Typography */
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-display: 'Space Grotesk', var(--font-sans);
+
+  --radius: 6px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  background-color: #020617;
-  color: #f8fafc;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  padding: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(245, 169, 0, 0.04), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 80%, rgba(6, 182, 212, 0.03), transparent),
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
 }
+
+/* Glassmorphism helpers */
+.glass-panel {
+  background: rgba(13, 18, 27, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(19, 26, 38, 0.65) 0%, rgba(13, 18, 27, 0.85) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Glow effects */
+.glow-amber-border {
+  box-shadow: 0 0 15px rgba(245, 169, 0, 0.18), inset 0 0 15px rgba(245, 169, 0, 0.05);
+}
+
+.glow-critical-border {
+  box-shadow: 0 0 15px rgba(255, 77, 90, 0.22), inset 0 0 15px rgba(255, 77, 90, 0.06);
+}
+
+.glow-cyan-border {
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.18), inset 0 0 15px rgba(6, 182, 212, 0.05);
+}
+
+.glow-emerald-border {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.18), inset 0 0 15px rgba(16, 185, 129, 0.05);
+}
+
+/* Radar pulse animation */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.radar-ping {
+  animation: radar-pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+/* Cyber telemetry figures */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(7, 9, 14, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 169, 0, 0.35);
+}
+
+/* Accessibility focus ring */
+:focus-visible {
+  outline: 1.5px solid var(--amber);
+  outline-offset: 1px;
+}
+
+

@@ -3,21 +3,539 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cyra Sentinel - AI EDR Console</title>
+  <meta name="theme-color" content="#07090C" />
+  <title>Cyra Sentinel // SOC Agent</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    body {
-      background-color: #020617;
-      color: #f8fafc;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: "#07090C",
+            surface: "#0D1117",
+            "surface-raised": "#131822",
+            amber: "#F5A900",
+            "amber-dim": "#8A6300",
+            ash: "#E6E9ED",
+            slate: "#9AA3AD",
+            critical: "#FF4D5A",
+            info: "#4DA3FF",
+            success: "#36C98F",
+          },
+          fontFamily: {
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+            sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
     }
+  </script>
+  <style>
+    :root {
+      --bg: #07090C;
+      --surface: #0D1117;
+      --surface-raised: #131822;
+      --border: rgba(255, 255, 255, 0.08);
+      --amber: #F5A900;
+      --amber-dim: #8A6300;
+      --ash: #E6E9ED;
+      --slate: #9AA3AD;
+      --critical: #FF4D5A;
+      --info: #4DA3FF;
+      --success: #36C98F;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+      --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--ash);
+      font-family: var(--font-sans);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+    :focus-visible { outline: 1.5px solid var(--amber); outline-offset: 1px; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
+<body class="bg-[#07090C] text-[#E6E9ED] font-sans antialiased min-h-screen">
   <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const API_BASE = '/api/v1';
+
+    async function fetchIncidents() {
+      try {
+        const res = await fetch(`${API_BASE}/incidents`);
+        if (!res.ok) return [];
+        return await res.json();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    async function fetchDevices() {
+      try {
+        const res = await fetch(`${API_BASE}/devices`);
+        if (!res.ok) return [];
+        return await res.json();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    async function isolateDevice(deviceId, reason) {
+      const res = await fetch(`${API_BASE}/devices/${deviceId}/isolate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      return res.json();
+    }
+
+    async function sendAgentMessage(message, incidentId) {
+      const res = await fetch(`${API_BASE}/agent/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, incident_id: incidentId })
+      });
+      return res.json();
+    }
+
+    function ScoreBadge({ score }) {
+      const numScore = typeof score === 'number' ? score : parseFloat(score) || 0.9;
+      const pct = Math.round(numScore > 1 ? numScore : numScore * 100);
+      let badgeStyle = 'bg-[#4DA3FF]/10 text-[#4DA3FF] border-[#4DA3FF]/30';
+      if (pct >= 85) badgeStyle = 'bg-[#FF4D5A]/10 text-[#FF4D5A] border-[#FF4D5A]/30';
+      else if (pct >= 60) badgeStyle = 'bg-[#F5A900]/10 text-[#F5A900] border-[#F5A900]/30';
+
+      return (
+        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-medium border ${badgeStyle}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+          <span className="tabular-nums">{pct}% Confidence</span>
+        </span>
+      );
+    }
+
+    function IncidentCard({ incident, isSelected, onClick }) {
+      const getSeverityBorder = (sev) => {
+        switch ((sev || '').toUpperCase()) {
+          case 'CRITICAL':
+          case 'HIGH': return 'border-l-[#FF4D5A]';
+          case 'MEDIUM': return 'border-l-[#F5A900]';
+          default: return 'border-l-[#4DA3FF]';
+        }
+      };
+
+      return (
+        <div
+          onClick={onClick}
+          tabIndex={0}
+          role="button"
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick && onClick(); }}
+          className={`p-3 rounded bg-[#0D1117] border border-l-4 transition-colors cursor-pointer ${getSeverityBorder(incident.severity)} ${
+            isSelected
+              ? 'border-t-[#F5A900]/50 border-r-[#F5A900]/50 border-b-[#F5A900]/50 bg-[#131822]'
+              : 'border-t-[rgba(255,255,255,0.08)] border-r-[rgba(255,255,255,0.08)] border-b-[rgba(255,255,255,0.08)] hover:bg-[#131822] hover:border-t-[rgba(255,255,255,0.15)] hover:border-r-[rgba(255,255,255,0.15)] hover:border-b-[rgba(255,255,255,0.15)]'
+          } focus-visible:outline-none`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2 font-mono text-xs text-[#9AA3AD]">
+              <span className="text-[#FF4D5A]">🛡️</span>
+              <span className="font-semibold text-[#E6E9ED]">{incident.id}</span>
+              <span className="text-[#66707C]">·</span>
+              <span className="text-[#F5A900] font-medium">{incident.attack_type}</span>
+            </div>
+            <ScoreBadge score={incident.confidence} />
+          </div>
+          <h3 className="font-sans font-medium text-xs text-[#E6E9ED] mb-1 line-clamp-1">{incident.title}</h3>
+          <p className="font-sans text-[12px] text-[#9AA3AD] line-clamp-2 mb-2.5 leading-relaxed">{incident.description}</p>
+          <div className="flex items-center justify-between text-[11px] text-[#66707C] pt-2 border-t border-[rgba(255,255,255,0.05)] font-mono">
+            <div className="flex items-center gap-1.5">
+              <span>💻</span>
+              <span>{incident.device_id}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>⏱️</span>
+              <span className="uppercase">{incident.status}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function AgentReasoning({ reasoning }) {
+      if (!reasoning) return null;
+      return (
+        <div className="bg-[#0D1117] rounded border border-[rgba(255,255,255,0.08)] border-l-4 border-l-[#F5A900] p-5 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.08)]">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded bg-[#F5A900]/10 border border-[#8A6300]/40 text-[#F5A900]">
+                🤖
+              </div>
+              <div>
+                <h3 className="font-mono font-bold text-xs uppercase tracking-wider text-[#E6E9ED]">
+                  BEDROCK CLAUDE AI INVESTIGATION REPORT
+                </h3>
+                <p className="text-[11px] font-mono text-[#66707C]">PIPELINE: DETECT → INVESTIGATE → REMEMBER → ACT</p>
+              </div>
+            </div>
+            <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold bg-[#36C98F]/10 text-[#36C98F] border border-[#36C98F]/30 flex items-center gap-1">
+              ✓ VERDICT FORMULATED
+            </span>
+          </div>
+
+          <div className="p-3 rounded bg-[#07090C] border border-[#8A6300]/30 font-mono text-xs text-[#F5A900] font-semibold">
+            &gt; {reasoning.agent_verdict}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 text-xs font-mono font-semibold text-[#9AA3AD] uppercase tracking-wider">
+              <span>🔬</span>
+              <span>STAGE 1 ROOT CAUSE ANALYSIS</span>
+            </div>
+            <div className="p-3 rounded bg-[#07090C] border border-[rgba(255,255,255,0.08)] font-sans text-xs text-[#E6E9ED] leading-relaxed">
+              {reasoning.explanation}
+            </div>
+          </div>
+
+          {reasoning.recommended_action && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs font-mono font-semibold text-[#9AA3AD] uppercase tracking-wider">
+                <span>⚠️</span>
+                <span>RECOMMENDED CONTAINMENT STRATEGY</span>
+              </div>
+              <div className="p-3 rounded bg-[#07090C] border border-[rgba(255,255,255,0.08)] text-xs space-y-2">
+                <div className="font-mono font-semibold text-[#F5A900] uppercase tracking-wide">
+                  {reasoning.recommended_action.recommended_action}
+                </div>
+                {reasoning.recommended_action.steps && (
+                  <ul className="list-disc list-inside text-[#9AA3AD] font-sans text-xs space-y-1 pt-0.5">
+                    {reasoning.recommended_action.steps.map((step, i) => <li key={i}>{step}</li>)}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
+          {reasoning.memory_persisted && (
+            <div className="flex items-center gap-2 pt-2 text-xs font-mono text-[#36C98F] border-t border-[rgba(255,255,255,0.08)]">
+              <span>🧠</span>
+              <span>{reasoning.memory_persisted.message}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function ProcessTree({ deviceInfo }) {
+      if (!deviceInfo) return null;
+      const processes = deviceInfo.active_processes || [];
+      return (
+        <div className="bg-[#0D1117] rounded border border-[rgba(255,255,255,0.08)] p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.08)] pb-2 text-xs font-mono font-semibold tracking-wider text-[#E6E9ED]">
+            <div className="flex items-center gap-2">
+              <span className="text-[#F5A900]">🌿</span>
+              <span>PROCESS EXECUTION TREE</span>
+            </div>
+            <span className="font-mono text-[#8A6300]">{deviceInfo.device_id}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-[#07090C] p-2.5 rounded border border-[rgba(255,255,255,0.05)]">
+            <div><span className="text-[#66707C]">HOST:</span> <span className="text-[#E6E9ED] font-semibold">{deviceInfo.name}</span></div>
+            <div><span className="text-[#66707C]">IP:</span> <span className="text-[#E6E9ED]">{deviceInfo.ip_address}</span></div>
+            <div><span className="text-[#66707C]">OWNER:</span> <span className="text-[#E6E9ED]">{deviceInfo.owner}</span></div>
+            <div><span className="text-[#66707C]">CRITICALITY:</span> <span className="text-[#F5A900] font-semibold">{deviceInfo.criticality}</span></div>
+          </div>
+
+          {processes.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-mono font-semibold text-[#9AA3AD] flex items-center gap-1.5 uppercase tracking-wider">
+                <span>💻</span>
+                <span>SUSPECT PROCESS HIERARCHY</span>
+              </div>
+              <div className="p-3 rounded bg-[#07090C] font-mono text-xs border border-[rgba(255,255,255,0.08)] space-y-1">
+                {processes.map((proc, idx) => {
+                  const isLast = idx === processes.length - 1;
+                  const isSuspicious = proc.toLowerCase().includes('mimikatz') || proc.toLowerCase().includes('vssadmin') || proc.toLowerCase().includes('encrypter');
+                  return (
+                    <div key={idx} className="flex items-center gap-2 font-mono">
+                      <span className="text-[#66707C] select-none">{isLast ? '└──' : '├──'}</span>
+                      <span className={`tabular-nums ${isSuspicious ? 'text-[#FF4D5A] font-semibold bg-[#FF4D5A]/10 px-1.5 py-0.5 rounded border border-[#FF4D5A]/30' : 'text-[#E6E9ED]'}`}>
+                        {proc}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function SimilarThreats({ threats }) {
+      if (!threats || threats.length === 0) return null;
+      return (
+        <div className="bg-[#0D1117] rounded border border-[rgba(255,255,255,0.08)] p-4 space-y-3">
+          <div className="flex items-center gap-2 text-xs font-mono font-semibold tracking-wider text-[#E6E9ED] border-b border-[rgba(255,255,255,0.08)] pb-2">
+            <span className="text-[#F5A900]">🧠</span>
+            <span>TITAN VECTOR MEMORY MATCHES</span>
+          </div>
+          <div className="space-y-2">
+            {threats.map((t, idx) => (
+              <div key={idx} className="p-3 rounded bg-[#07090C] border border-[rgba(255,255,255,0.08)] hover:bg-[#131822] hover:border-[rgba(255,255,255,0.15)] transition-colors space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-semibold text-[#E6E9ED]">{t.threat_type || t.id}</span>
+                  <span className="px-2 py-0.5 rounded bg-[#F5A900]/10 text-[#F5A900] text-[11px] font-mono font-semibold border border-[#F5A900]/30 tabular-nums">
+                    {(t.similarity_score * 100).toFixed(1)}% MATCH
+                  </span>
+                </div>
+                <p className="font-sans text-[#9AA3AD] leading-relaxed">{t.summary}</p>
+                {t.recommended_action && (
+                  <p className="text-[11px] text-[#66707C] font-mono pt-1">
+                    ACTION: {t.recommended_action}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function ChatWindow({ incidentId }) {
+      const [messages, setMessages] = useState([
+        { sender: 'agent', text: 'Greetings. I am Cyra Sentinel SOC Agent. Ask me about threat investigation details, containment status, or vector memory findings.' }
+      ]);
+      const [input, setInput] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleSend = async (e) => {
+        e.preventDefault();
+        if (!input.trim() || loading) return;
+        const userText = input.trim();
+        setInput('');
+        setMessages(prev => [...prev, { sender: 'user', text: userText }]);
+        setLoading(true);
+
+        try {
+          const res = await sendAgentMessage(userText, incidentId);
+          setMessages(prev => [...prev, { sender: 'agent', text: res.response || 'Agent processed request.' }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { sender: 'agent', text: 'Error connecting to Cyra Agent endpoint.' }]);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="flex flex-col h-[400px] bg-[#0D1117] rounded border border-[rgba(255,255,255,0.08)] overflow-hidden">
+          <div className="p-3 bg-[#07090C] border-b border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>🤖</span>
+              <span className="font-mono font-semibold text-xs uppercase tracking-wider text-[#E6E9ED]">CYRA AGENT INTERACTIVE CONSOLE</span>
+            </div>
+          </div>
+          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs font-sans">
+            {messages.map((m, idx) => (
+              <div key={idx} className={`flex items-start gap-2.5 ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`p-3 rounded max-w-[80%] leading-relaxed ${
+                  m.sender === 'user' ? 'bg-[#131822] border border-[#8A6300]/40 text-[#E6E9ED]' : 'bg-[#07090C] border border-[rgba(255,255,255,0.08)] text-[#E6E9ED]'
+                }`}>
+                  <div className="text-[10px] font-mono text-[#66707C] mb-1 uppercase tracking-wider">{m.sender === 'user' ? 'ANALYST COMMAND' : 'CYRA AGENT'}</div>
+                  <p className="whitespace-pre-wrap">{m.text}</p>
+                </div>
+              </div>
+            ))}
+            {loading && <div className="text-[#66707C] font-mono text-xs pl-2">CYRA AGENT ANALYZING TELEMETRY...</div>}
+          </div>
+          <form onSubmit={handleSend} className="p-2.5 bg-[#07090C] border-t border-[rgba(255,255,255,0.08)] flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Command Cyra Sentinel..."
+              className="flex-1 bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded px-3 py-1.5 text-xs font-sans text-[#E6E9ED] placeholder-[#66707C] focus:outline-none focus:border-[#F5A900]"
+            />
+            <button type="submit" disabled={loading} className="px-3.5 py-1.5 rounded bg-[#F5A900]/10 border border-[#F5A900] text-[#F5A900] hover:bg-[#F5A900] hover:text-[#07090C] text-xs font-mono font-semibold">
+              SEND
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    function App() {
+      const [incidents, setIncidents] = useState([]);
+      const [devices, setDevices] = useState([]);
+      const [selectedIncident, setSelectedIncident] = useState(null);
+      const [loading, setLoading] = useState(false);
+
+      const loadData = async () => {
+        setLoading(true);
+        try {
+          const incData = await fetchIncidents();
+          const devData = await fetchDevices();
+          setIncidents(incData);
+          setDevices(devData);
+          if (incData.length > 0 && !selectedIncident) {
+            setSelectedIncident(incData[0]);
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => {
+        loadData();
+        const interval = setInterval(loadData, 5000);
+        return () => clearInterval(interval);
+      }, []);
+
+      const handleIsolate = async (deviceId) => {
+        try {
+          await isolateDevice(deviceId, 'Manual containment from dashboard');
+          await loadData();
+        } catch (err) {
+          alert('Failed to isolate device');
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-[#07090C] text-[#E6E9ED] font-sans flex flex-col antialiased">
+          <header className="sticky top-0 z-50 bg-[#0D1117] border-b border-[rgba(255,255,255,0.08)]">
+            <div className="max-w-7xl mx-auto px-6 h-12 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[#F5A900] text-sm">🛡️</span>
+                <div className="flex items-center gap-1.5 font-mono text-xs font-semibold tracking-wider text-[#E6E9ED]">
+                  <span>CYRA SENTINEL</span>
+                  <span className="text-[#66707C]">//</span>
+                  <span className="text-[11px] text-[#9AA3AD]">SOC AGENT</span>
+                </div>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 font-mono text-[11px] text-[#9AA3AD]">
+                <span className="inline-block w-2 h-2 rounded-full bg-[#36C98F]"></span>
+                <span>AUTONOMOUS ACTIVE</span>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-3 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] font-mono text-[#66707C] uppercase tracking-wider">ACTIVE INCIDENTS</div>
+                  <div className="text-xl font-mono font-bold tabular-nums text-[#E6E9ED]">{incidents.length}</div>
+                </div>
+                <span className="text-[#FF4D5A]">🚨</span>
+              </div>
+              <div className="p-3 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] font-mono text-[#66707C] uppercase tracking-wider">ENDPOINTS MONITORED</div>
+                  <div className="text-xl font-mono font-bold tabular-nums text-[#E6E9ED]">{devices.length}</div>
+                </div>
+                <span className="text-[#9AA3AD]">💻</span>
+              </div>
+              <div className="p-3 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] font-mono text-[#66707C] uppercase tracking-wider">CONTAINED NODES</div>
+                  <div className="text-xl font-mono font-bold tabular-nums text-[#36C98F]">
+                    {devices.filter(d => d.status === 'ISOLATED').length}
+                  </div>
+                </div>
+                <span className="text-[#36C98F]">⚡</span>
+              </div>
+              <div className="p-3 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] font-mono text-[#66707C] uppercase tracking-wider">AGENT PIPELINE</div>
+                  <div className="text-sm font-mono font-bold text-[#F5A900] tracking-wide">AUTONOMOUS</div>
+                </div>
+                <span className="text-[#F5A900]">📡</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.08)] pb-2">
+                  <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-[#E6E9ED] flex items-center gap-2">
+                    <span className="text-[#F5A900]">🚨</span>
+                    <span>REAL-TIME INCIDENT STREAM</span>
+                  </h2>
+                  <button onClick={loadData} className="p-1 rounded bg-[#0D1117] border border-[rgba(255,255,255,0.08)] text-[#66707C] hover:text-[#E6E9ED]">
+                    🔄
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-[720px] overflow-y-auto pr-1">
+                  {incidents.length > 0 ? (
+                    incidents.map((inc) => (
+                      <IncidentCard
+                        key={inc.id}
+                        incident={inc}
+                        isSelected={selectedIncident?.id === inc.id}
+                        onClick={() => setSelectedIncident(inc)}
+                      />
+                    ))
+                  ) : (
+                    <div className="p-6 text-left bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded text-xs space-y-2">
+                      <div className="text-[#36C98F] font-mono font-semibold">LIVE TELEMETRY // SENSOR CONNECTED</div>
+                      <p className="text-[#9AA3AD] font-sans">No active threats detected. System is listening to sensor event telemetry.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="lg:col-span-2 space-y-5">
+                {selectedIncident ? (
+                  <>
+                    <div className="p-4 bg-[#0D1117] rounded border border-[rgba(255,255,255,0.08)] flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-mono text-[#F5A900] font-semibold">INCIDENT {selectedIncident.id} // {selectedIncident.attack_type}</div>
+                        <h1 className="text-sm font-sans font-semibold text-[#E6E9ED]">{selectedIncident.title}</h1>
+                      </div>
+                      <button
+                        onClick={() => handleIsolate(selectedIncident.device_id)}
+                        className="px-3 py-1.5 rounded bg-[#FF4D5A]/10 border border-[#FF4D5A]/40 text-[#FF4D5A] hover:bg-[#FF4D5A]/20 text-xs font-mono font-semibold"
+                      >
+                        ⚡ ISOLATE HOST SUBNET
+                      </button>
+                    </div>
+
+                    <AgentReasoning reasoning={selectedIncident.ai_reasoning} />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <ProcessTree deviceInfo={selectedIncident.ai_reasoning?.device_info} />
+                      <SimilarThreats threats={selectedIncident.ai_reasoning?.similar_threats || []} />
+                    </div>
+
+                    <ChatWindow incidentId={selectedIncident.id} />
+                  </>
+                ) : (
+                  <div className="p-12 text-center text-[#66707C] font-mono text-xs uppercase tracking-wider bg-[#0D1117] rounded border border-[rgba(255,255,255,0.08)]">
+                    SELECT AN INCIDENT FROM THE STREAM TO INSPECT INVESTIGATION LOGS
+                  </div>
+                )}
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
